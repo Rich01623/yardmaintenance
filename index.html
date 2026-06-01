@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frost Transport | Maintenance Defects</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-soft: #0f1b2d;
+      --panel: rgba(15, 27, 45, 0.94);
+      --panel-strong: #12233a;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --muted-2: #cbd5e1;
+      --line: rgba(148, 163, 184, 0.24);
+      --blue: #3b82f6;
+      --orange: #f97316;
+      --red: #ef4444;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --purple: #a855f7;
+      --shadow: 0 20px 50px rgba(0, 0, 0, 0.36);
+      --radius-xl: 24px;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.25), transparent 30%),
+        radial-gradient(circle at top right, rgba(249, 115, 22, 0.16), transparent 25%),
+        var(--bg);
+    }
+
+    button, textarea, input { font: inherit; }
+
+    .app-shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0;
+    }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 46px;
+      height: 46px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--blue), var(--orange));
+      box-shadow: 0 12px 30px rgba(59, 130, 246, 0.25);
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    .brand-title { margin: 0; font-size: 18px; letter-spacing: 0.02em; }
+    .brand-subtitle { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+    .refresh-btn,
+    .back-btn,
+    .secondary-btn,
+    .resolve-btn,
+    .save-resolve-btn,
+    .cancel-resolve-btn {
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: rgba(15, 27, 45, 0.84);
+      border-radius: 999px;
+      padding: 11px 16px;
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, opacity 0.18s ease;
+      white-space: nowrap;
+    }
+
+    .refresh-btn:hover,
+    .back-btn:hover,
+    .secondary-btn:hover,
+    .resolve-btn:hover,
+    .save-resolve-btn:hover,
+    .cancel-resolve-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(59, 130, 246, 0.65);
+      background: rgba(18, 35, 58, 0.98);
+    }
+
+    .resolve-btn {
+      background: rgba(34, 197, 94, 0.14);
+      border-color: rgba(34, 197, 94, 0.34);
+      color: #bbf7d0;
+      font-weight: 800;
+    }
+
+    .save-resolve-btn {
+      background: rgba(34, 197, 94, 0.18);
+      border-color: rgba(34, 197, 94, 0.42);
+      color: #bbf7d0;
+      font-weight: 800;
+    }
+
+    .cancel-resolve-btn {
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.34);
+      color: #fecaca;
+      font-weight: 700;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .hero {
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, rgba(18, 35, 58, 0.96), rgba(15, 27, 45, 0.86));
+      border-radius: var(--radius-xl);
+      padding: clamp(24px, 4vw, 44px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -80px;
+      top: -80px;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.11);
+      pointer-events: none;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(34px, 6vw, 62px);
+      line-height: 1;
+      letter-spacing: -0.06em;
+    }
+
+    .summary-line {
+      max-width: 900px;
+      margin: 18px 0 0;
+      color: var(--muted-2);
+      font-size: clamp(17px, 2.1vw, 24px);
+      line-height: 1.45;
+    }
+
+    .summary-line strong { color: var(--text); }
+    .last-updated { margin-top: 18px; color: var(--muted); font-size: 13px; }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .dashboard-card {
+      border: 1px solid var(--line);
+      background: rgba(15, 27, 45, 0.84);
+      border-radius: var(--radius-xl);
+      padding: 26px;
+      cursor: pointer;
+      text-align: left;
+      color: var(--text);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.2);
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+      min-height: 190px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dashboard-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(59, 130, 246, 0.72);
+      background: rgba(18, 35, 58, 0.96);
+    }
+
+    .dashboard-card.trailer:hover { border-color: rgba(249, 115, 22, 0.72); }
+    .dashboard-card.unresolved:hover { border-color: rgba(168, 85, 247, 0.72); }
+
+    .card-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      background: rgba(59, 130, 246, 0.14);
+      color: #bfdbfe;
+      font-size: 28px;
+      margin-bottom: 22px;
+    }
+
+    .dashboard-card.trailer .card-icon { background: rgba(249, 115, 22, 0.14); color: #fed7aa; }
+    .dashboard-card.unresolved .card-icon { background: rgba(168, 85, 247, 0.14); color: #e9d5ff; }
+    .dashboard-card h2 { margin: 0; font-size: 26px; letter-spacing: -0.03em; }
+    .card-count { margin: 12px 0 0; color: var(--muted-2); font-size: 16px; }
+    .card-count strong { color: var(--text); font-size: 28px; margin-right: 4px; }
+    .card-footer { margin-top: 22px; color: var(--muted); font-size: 14px; }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 20px 0;
+    }
+
+    .section-header h2 { margin: 16px 0 0; font-size: clamp(28px, 4vw, 42px); letter-spacing: -0.05em; }
+    .section-header p { margin: 8px 0 0; color: var(--muted); }
+    .section-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .status-banner {
+      display: none;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      margin: 16px 0;
+      color: var(--muted-2);
+      background: rgba(15, 27, 45, 0.84);
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .status-banner.show { display: block; }
+    .status-banner.error { border-color: rgba(239, 68, 68, 0.45); background: rgba(127, 29, 29, 0.22); color: #fecaca; }
+    .status-banner.success { border-color: rgba(34, 197, 94, 0.45); background: rgba(20, 83, 45, 0.22); color: #bbf7d0; }
+    .status-banner.warning { border-color: rgba(245, 158, 11, 0.45); background: rgba(120, 53, 15, 0.22); color: #fde68a; }
+
+    .defects-list {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .defect-card {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 18px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: var(--radius-xl);
+      padding: 16px;
+      box-shadow: 0 16px 35px rgba(0, 0, 0, 0.22);
+    }
+
+    .defect-photo-box {
+      width: 140px;
+      height: 140px;
+      border: 1px dashed rgba(148, 163, 184, 0.38);
+      border-radius: 18px;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      background: rgba(2, 6, 23, 0.28);
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .defect-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      cursor: zoom-in;
+      display: block;
+    }
+
+    .defect-main { min-width: 0; }
+
+    .defect-topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .defect-title-wrap { min-width: 0; }
+
+    .registration {
+      margin: 0;
+      font-size: 26px;
+      line-height: 1.1;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+
+    .defect-type-label {
+      display: inline-block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .defect-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .defect-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: #fecaca;
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .meta-item {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 11px 12px;
+      background: rgba(2, 6, 23, 0.18);
+    }
+
+    .meta-label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .meta-value { display: block; color: var(--text); font-weight: 700; overflow-wrap: anywhere; }
+
+    .defect-details {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      background: rgba(2, 6, 23, 0.2);
+      white-space: pre-wrap;
+      line-height: 1.5;
+      color: #e2e8f0;
+    }
+
+    .resolve-panel {
+      display: none;
+      margin-top: 14px;
+      border: 1px solid rgba(34, 197, 94, 0.34);
+      border-radius: var(--radius-lg);
+      background: rgba(20, 83, 45, 0.14);
+      padding: 14px;
+    }
+
+    .resolve-panel.show { display: block; }
+
+    .resolve-panel-title {
+      margin: 0 0 10px;
+      color: #bbf7d0;
+      font-weight: 900;
+    }
+
+    .resolve-readonly-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .readonly-box {
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      background: rgba(2, 6, 23, 0.2);
+    }
+
+    .readonly-box span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .readonly-box strong { display: block; color: var(--text); overflow-wrap: anywhere; }
+
+    .resolve-panel label {
+      display: block;
+      color: var(--muted-2);
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .resolve-panel textarea {
+      width: 100%;
+      min-height: 110px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      resize: vertical;
+      color: var(--text);
+      background: rgba(2, 6, 23, 0.4);
+      outline: none;
+    }
+
+    .resolve-panel textarea:focus { border-color: rgba(34, 197, 94, 0.55); }
+
+    .resolve-panel-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .empty-state {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      padding: 34px;
+      text-align: center;
+      background: rgba(15, 27, 45, 0.78);
+      color: var(--muted-2);
+      display: none;
+    }
+
+    .empty-state.show { display: block; }
+    .empty-state h3 { margin-top: 0; color: var(--text); }
+
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.82);
+      z-index: 40;
+      padding: 24px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-backdrop.show { display: flex; }
+
+    .image-modal {
+      width: min(980px, 100%);
+      max-height: calc(100vh - 48px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: #020617;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted-2);
+    }
+
+    .modal-header button {
+      border: 0;
+      background: rgba(148, 163, 184, 0.14);
+      color: var(--text);
+      border-radius: 999px;
+      width: 36px;
+      height: 36px;
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    .modal-image-wrap {
+      display: grid;
+      place-items: center;
+      max-height: calc(100vh - 130px);
+      overflow: auto;
+      padding: 12px;
+    }
+
+    .modal-image-wrap img {
+      max-width: 100%;
+      max-height: calc(100vh - 155px);
+      object-fit: contain;
+      border-radius: 14px;
+    }
+
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.35);
+      backdrop-filter: blur(2px);
+      z-index: 30;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+    }
+
+    .loading-overlay.show { display: flex; }
+
+    .spinner-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: rgba(15, 27, 45, 0.96);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+    }
+
+    @media (max-width: 980px) {
+      .cards-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 780px) {
+      .app-shell { width: min(100% - 22px, 1180px); padding: 18px 0; }
+      .top-bar, .section-header { flex-direction: column; align-items: stretch; }
+      .section-actions { justify-content: stretch; }
+      .section-actions button { width: 100%; }
+      .defect-card { grid-template-columns: 1fr; }
+      .defect-photo-box { width: 100%; height: 220px; }
+      .defect-topline { flex-direction: column; }
+      .defect-actions { justify-content: flex-start; }
+      .meta-grid, .resolve-readonly-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner-card" id="loadingText">Loading defects…</div>
+  </div>
+
+  <div class="modal-backdrop" id="imageModal" aria-hidden="true">
+    <div class="image-modal" role="dialog" aria-modal="true" aria-label="Defect photo preview">
+      <div class="modal-header">
+        <span id="modalTitle">Defect photo</span>
+        <button id="closeModalBtn" type="button" aria-label="Close image preview">×</button>
+      </div>
+      <div class="modal-image-wrap">
+        <img id="modalImage" src="" alt="Enlarged defect photo" />
+      </div>
+    </div>
+  </div>
+
+  <main class="app-shell">
+    <header class="top-bar">
+      <div class="brand">
+        <div class="brand-mark">FT</div>
+        <div>
+          <p class="brand-title">Frost Transport</p>
+          <p class="brand-subtitle">Maintenance defect assessment • Unresolved card enabled</p>
+        </div>
+      </div>
+      <button class="refresh-btn" id="refreshBtn" type="button">Refresh defects</button>
+    </header>
+
+    <section class="screen active" id="homeScreen">
+      <div class="hero">
+        <h1>Good morning Martyn</h1>
+        <p class="summary-line" id="summaryLine">Checking today’s vehicle and trailer defects…</p>
+        <div class="last-updated" id="lastUpdated">Not refreshed yet</div>
+      </div>
+
+      <div class="cards-grid" aria-label="Defect category cards">
+        <button class="dashboard-card vehicle" id="vehicleCard" type="button">
+          <div class="card-icon">🚛</div>
+          <h2>Vehicle Defects</h2>
+          <p class="card-count"><strong id="vehicleCountCard">0</strong> reported today</p>
+          <div class="card-footer">Open today’s reported vehicle defects</div>
+        </button>
+
+        <button class="dashboard-card trailer" id="trailerCard" type="button">
+          <div class="card-icon">🚚</div>
+          <h2>Trailer Defects</h2>
+          <p class="card-count"><strong id="trailerCountCard">0</strong> reported today</p>
+          <div class="card-footer">Open today’s reported trailer defects</div>
+        </button>
+
+        <button class="dashboard-card unresolved" id="unresolvedCard" type="button">
+          <div class="card-icon">🛠️</div>
+          <h2>Unresolved</h2>
+          <p class="card-count"><strong id="unresolvedCountCard">0</strong> still open</p>
+          <div class="card-footer">View all open defects, regardless of report date</div>
+        </button>
+      </div>
+
+      <div class="status-banner" id="homeStatus"></div>
+    </section>
+
+    <section class="screen" id="vehicleScreen">
+      <div class="section-header">
+        <div>
+          <button class="back-btn backHomeBtn" type="button">← Back to dashboard</button>
+          <h2>Vehicle Defects</h2>
+          <p id="vehicleSectionSubtitle">Today’s reported vehicle defects.</p>
+        </div>
+        <div class="section-actions">
+          <button class="secondary-btn" id="reloadVehicleBtn" type="button">Reload vehicle defects</button>
+        </div>
+      </div>
+
+      <div class="status-banner" id="vehicleStatus"></div>
+      <div class="empty-state" id="vehicleEmptyState">
+        <h3>No vehicle defects reported today</h3>
+        <p>When drivers submit a check with <strong>DEFECTS</strong> in condition_status today, it will appear here.</p>
+      </div>
+      <div class="defects-list" id="vehicleDefectsList"></div>
+    </section>
+
+    <section class="screen" id="trailerScreen">
+      <div class="section-header">
+        <div>
+          <button class="back-btn backHomeBtn" type="button">← Back to dashboard</button>
+          <h2>Trailer Defects</h2>
+          <p id="trailerSectionSubtitle">Today’s reported trailer defects.</p>
+        </div>
+        <div class="section-actions">
+          <button class="secondary-btn" id="reloadTrailerBtn" type="button">Reload trailer defects</button>
+        </div>
+      </div>
+
+      <div class="status-banner" id="trailerStatus"></div>
+      <div class="empty-state" id="trailerEmptyState">
+        <h3>No trailer defects reported today</h3>
+        <p>When drivers submit a trailer check with <strong>DEFECTS</strong> in condition_status today, it will appear here.</p>
+      </div>
+      <div class="defects-list" id="trailerDefectsList"></div>
+    </section>
+
+    <section class="screen" id="unresolvedScreen">
+      <div class="section-header">
+        <div>
+          <button class="back-btn backHomeBtn" type="button">← Back to dashboard</button>
+          <h2>Unresolved Defects</h2>
+          <p id="unresolvedSectionSubtitle">All vehicle and trailer defects still waiting to be resolved.</p>
+        </div>
+        <div class="section-actions">
+          <button class="secondary-btn" id="reloadUnresolvedBtn" type="button">Reload unresolved defects</button>
+        </div>
+      </div>
+
+      <div class="status-banner" id="unresolvedStatus"></div>
+      <div class="empty-state" id="unresolvedEmptyState">
+        <h3>No unresolved defects</h3>
+        <p>Any row still marked <strong>DEFECTS</strong> will appear here until Martyn marks it resolved.</p>
+      </div>
+      <div class="defects-list" id="unresolvedDefectsList"></div>
+    </section>
+  </main>
+
+  <script>
+    const SUPABASE_URL = "https://mbudwnwxucluwgbkgbfx.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1idWR3bnd4dWNsdXdnYmtnYmZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMDQwMjYsImV4cCI6MjA5MDc4MDAyNn0.xFv-FiQ894vdfJuQYWQyF4WzQXmlnmnKvz_c8nuzl5Q";
+
+    const TABLES = {
+      vehicle: "daily_vehicle_checks",
+      trailer: "daily_trailer_checks"
+    };
+
+    const STATUS_COLUMN = "condition_status";
+    const DEFECT_VALUE = "DEFECTS";
+    const RESOLVED_VALUE = "Resolved";
+    const RESOLVED_BY = "Martyn";
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const els = {
+      loadingOverlay: document.getElementById("loadingOverlay"),
+      loadingText: document.getElementById("loadingText"),
+      homeScreen: document.getElementById("homeScreen"),
+      vehicleScreen: document.getElementById("vehicleScreen"),
+      trailerScreen: document.getElementById("trailerScreen"),
+      unresolvedScreen: document.getElementById("unresolvedScreen"),
+      summaryLine: document.getElementById("summaryLine"),
+      lastUpdated: document.getElementById("lastUpdated"),
+      vehicleCountCard: document.getElementById("vehicleCountCard"),
+      trailerCountCard: document.getElementById("trailerCountCard"),
+      unresolvedCountCard: document.getElementById("unresolvedCountCard"),
+      vehicleDefectsList: document.getElementById("vehicleDefectsList"),
+      trailerDefectsList: document.getElementById("trailerDefectsList"),
+      unresolvedDefectsList: document.getElementById("unresolvedDefectsList"),
+      vehicleEmptyState: document.getElementById("vehicleEmptyState"),
+      trailerEmptyState: document.getElementById("trailerEmptyState"),
+      unresolvedEmptyState: document.getElementById("unresolvedEmptyState"),
+      homeStatus: document.getElementById("homeStatus"),
+      vehicleStatus: document.getElementById("vehicleStatus"),
+      trailerStatus: document.getElementById("trailerStatus"),
+      unresolvedStatus: document.getElementById("unresolvedStatus"),
+      vehicleSectionSubtitle: document.getElementById("vehicleSectionSubtitle"),
+      trailerSectionSubtitle: document.getElementById("trailerSectionSubtitle"),
+      unresolvedSectionSubtitle: document.getElementById("unresolvedSectionSubtitle"),
+      imageModal: document.getElementById("imageModal"),
+      modalImage: document.getElementById("modalImage"),
+      modalTitle: document.getElementById("modalTitle")
+    };
+
+    let state = {
+      todayVehicleDefects: [],
+      todayTrailerDefects: [],
+      unresolvedDefects: []
+    };
+
+    function getTodayRange() {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+      return {
+        startIso: start.toISOString(),
+        endIso: end.toISOString(),
+        label: start.toLocaleDateString("en-GB", {
+          weekday: "long",
+          day: "2-digit",
+          month: "long",
+          year: "numeric"
+        })
+      };
+    }
+
+    function showLoading(isLoading, message = "Loading defects…") {
+      els.loadingText.textContent = message;
+      els.loadingOverlay.classList.toggle("show", isLoading);
+    }
+
+    function showScreen(screenName) {
+      [els.homeScreen, els.vehicleScreen, els.trailerScreen, els.unresolvedScreen].forEach((screen) => {
+        screen.classList.remove("active");
+      });
+
+      if (screenName === "vehicle") els.vehicleScreen.classList.add("active");
+      else if (screenName === "trailer") els.trailerScreen.classList.add("active");
+      else if (screenName === "unresolved") els.unresolvedScreen.classList.add("active");
+      else els.homeScreen.classList.add("active");
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function setBanner(element, message, type = "info") {
+      if (!message) {
+        element.textContent = "";
+        element.className = "status-banner";
+        return;
+      }
+
+      element.textContent = message;
+      element.className = `status-banner show ${type}`;
+    }
+
+    function normaliseText(value, fallback = "Not supplied") {
+      if (value === null || value === undefined || String(value).trim() === "") return fallback;
+      return String(value).trim();
+    }
+
+    function formatDateTime(value) {
+      if (!value) return "Not supplied";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+
+      return date.toLocaleString("en-GB", {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function formatResolveDateTime(date = new Date()) {
+      return date.toLocaleString("en-GB", {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function decorateVehicle(row) {
+      return {
+        ...row,
+        table: TABLES.vehicle,
+        type: "vehicle",
+        typeLabel: "Vehicle",
+        displayId: normaliseText(row.registration, "Unknown registration")
+      };
+    }
+
+    function decorateTrailer(row) {
+      return {
+        ...row,
+        table: TABLES.trailer,
+        type: "trailer",
+        typeLabel: "Trailer",
+        displayId: normaliseText(row.trailer_number, "Unknown trailer number")
+      };
+    }
+
+    async function fetchTodayVehicleDefects() {
+      const range = getTodayRange();
+      const { data, error } = await supabaseClient
+        .from(TABLES.vehicle)
+        .select("id, registration, driver_name, created_at, defect_details, defect_photo_url, condition_status")
+        .eq(STATUS_COLUMN, DEFECT_VALUE)
+        .gte("created_at", range.startIso)
+        .lt("created_at", range.endIso)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map(decorateVehicle);
+    }
+
+    async function fetchTodayTrailerDefects() {
+      const range = getTodayRange();
+      const { data, error } = await supabaseClient
+        .from(TABLES.trailer)
+        .select("id, trailer_number, driver_name, created_at, defect_details, defect_photo_url, condition_status")
+        .eq(STATUS_COLUMN, DEFECT_VALUE)
+        .gte("created_at", range.startIso)
+        .lt("created_at", range.endIso)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map(decorateTrailer);
+    }
+
+    async function fetchAllUnresolvedDefects() {
+      const [vehicleResults, trailerResults] = await Promise.allSettled([
+        supabaseClient
+          .from(TABLES.vehicle)
+          .select("id, registration, driver_name, created_at, defect_details, defect_photo_url, condition_status")
+          .eq(STATUS_COLUMN, DEFECT_VALUE)
+          .order("created_at", { ascending: false }),
+        supabaseClient
+          .from(TABLES.trailer)
+          .select("id, trailer_number, driver_name, created_at, defect_details, defect_photo_url, condition_status")
+          .eq(STATUS_COLUMN, DEFECT_VALUE)
+          .order("created_at", { ascending: false })
+      ]);
+
+      const errors = [];
+      const unresolved = [];
+
+      if (vehicleResults.status === "fulfilled") {
+        if (vehicleResults.value.error) errors.push(`Vehicle unresolved: ${vehicleResults.value.error.message}`);
+        else unresolved.push(...(vehicleResults.value.data || []).map(decorateVehicle));
+      } else {
+        errors.push(`Vehicle unresolved: ${vehicleResults.reason?.message || "Unknown error"}`);
+      }
+
+      if (trailerResults.status === "fulfilled") {
+        if (trailerResults.value.error) errors.push(`Trailer unresolved: ${trailerResults.value.error.message}`);
+        else unresolved.push(...(trailerResults.value.data || []).map(decorateTrailer));
+      } else {
+        errors.push(`Trailer unresolved: ${trailerResults.reason?.message || "Unknown error"}`);
+      }
+
+      unresolved.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      return { unresolved, errors };
+    }
+
+    function renderSummary() {
+      const vehicleCount = state.todayVehicleDefects.length;
+      const trailerCount = state.todayTrailerDefects.length;
+      const unresolvedCount = state.unresolvedDefects.length;
+      const range = getTodayRange();
+
+      els.vehicleCountCard.textContent = vehicleCount;
+      els.trailerCountCard.textContent = trailerCount;
+      els.unresolvedCountCard.textContent = unresolvedCount;
+
+      els.summaryLine.innerHTML = `There has been <strong>${vehicleCount}</strong> vehicle defects and <strong>${trailerCount}</strong> trailer defects reported for you to assess today. There are <strong>${unresolvedCount}</strong> unresolved defects still open.`;
+
+      const now = new Date();
+      els.lastUpdated.textContent = `Last refreshed: ${now.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      })}`;
+
+      els.vehicleSectionSubtitle.textContent = `Showing ${vehicleCount} vehicle defect${vehicleCount === 1 ? "" : "s"} reported on ${range.label}.`;
+      els.trailerSectionSubtitle.textContent = `Showing ${trailerCount} trailer defect${trailerCount === 1 ? "" : "s"} reported on ${range.label}.`;
+      els.unresolvedSectionSubtitle.textContent = `Showing ${unresolvedCount} unresolved defect${unresolvedCount === 1 ? "" : "s"} from all dates.`;
+    }
+
+    function renderDefects(defects, listElement, emptyElement, mode) {
+      listElement.innerHTML = "";
+      emptyElement.classList.toggle("show", defects.length === 0);
+
+      defects.forEach((defect) => {
+        const photoUrl = normaliseText(defect.defect_photo_url, "");
+        const displayId = normaliseText(defect.displayId, defect.type === "vehicle" ? "Unknown registration" : "Unknown trailer number");
+        const driverName = normaliseText(defect.driver_name, "Unknown driver");
+        const defectDetails = normaliseText(defect.defect_details, "No defect details supplied");
+        const createdAt = formatDateTime(defect.created_at);
+        const resolveStamp = formatResolveDateTime();
+        const cardKey = `${defect.type}-${defect.id}-${mode}`;
+
+        const card = document.createElement("article");
+        card.className = "defect-card";
+        card.dataset.defectId = defect.id;
+        card.dataset.defectType = defect.type;
+        card.dataset.mode = mode;
+
+        card.innerHTML = `
+          <div class="defect-photo-box">
+            ${photoUrl
+              ? `<img class="defect-photo" src="${escapeHtml(photoUrl)}" alt="Defect photo for ${escapeHtml(displayId)}" data-photo-url="${escapeHtml(photoUrl)}" data-photo-title="${escapeHtml(displayId)} defect photo" onerror="this.parentElement.textContent='Photo could not be loaded';" />`
+              : `<span>No photo uploaded</span>`
+            }
+          </div>
+
+          <div class="defect-main">
+            <div class="defect-topline">
+              <div class="defect-title-wrap">
+                <h3 class="registration">${escapeHtml(displayId)}</h3>
+                <span class="defect-type-label">${escapeHtml(defect.typeLabel)} defect</span>
+              </div>
+              <div class="defect-actions">
+                <span class="defect-pill">● Defect</span>
+                <button class="resolve-btn" type="button" data-action="open-resolve" data-card-key="${escapeHtml(cardKey)}">Mark resolved</button>
+              </div>
+            </div>
+
+            <div class="meta-grid">
+              <div class="meta-item">
+                <span class="meta-label">Reported by</span>
+                <span class="meta-value">${escapeHtml(driverName)}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Time and date</span>
+                <span class="meta-value">${escapeHtml(createdAt)}</span>
+              </div>
+            </div>
+
+            <div class="defect-details"><strong>Defect Details</strong>\n${escapeHtml(defectDetails)}</div>
+
+            <div class="resolve-panel" data-resolve-panel="${escapeHtml(cardKey)}">
+              <p class="resolve-panel-title">Mark this defect as resolved</p>
+              <div class="resolve-readonly-grid">
+                <div class="readonly-box">
+                  <span>Resolved by</span>
+                  <strong>${escapeHtml(RESOLVED_BY)}</strong>
+                </div>
+                <div class="readonly-box">
+                  <span>Date and time</span>
+                  <strong>${escapeHtml(resolveStamp)}</strong>
+                </div>
+              </div>
+              <label for="resolve-note-${escapeHtml(cardKey)}">Brief description of work carried out</label>
+              <textarea id="resolve-note-${escapeHtml(cardKey)}" data-resolve-note placeholder="Example: Replaced blown bulb, checked operation and road tested."></textarea>
+              <div class="resolve-panel-actions">
+                <button class="cancel-resolve-btn" type="button" data-action="cancel-resolve">Cancel</button>
+                <button class="save-resolve-btn" type="button" data-action="save-resolve">Save and mark resolved</button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        listElement.appendChild(card);
+      });
+    }
+
+    function renderAllLists() {
+      renderSummary();
+      renderDefects(state.todayVehicleDefects, els.vehicleDefectsList, els.vehicleEmptyState, "vehicleToday");
+      renderDefects(state.todayTrailerDefects, els.trailerDefectsList, els.trailerEmptyState, "trailerToday");
+      renderDefects(state.unresolvedDefects, els.unresolvedDefectsList, els.unresolvedEmptyState, "unresolved");
+    }
+
+    async function loadDashboard() {
+      showLoading(true, "Loading defects…");
+      setBanner(els.homeStatus, "");
+      setBanner(els.vehicleStatus, "");
+      setBanner(els.trailerStatus, "");
+      setBanner(els.unresolvedStatus, "");
+
+      try {
+        const [vehicleResults, trailerResults, unresolvedResults] = await Promise.allSettled([
+          fetchTodayVehicleDefects(),
+          fetchTodayTrailerDefects(),
+          fetchAllUnresolvedDefects()
+        ]);
+
+        const dashboardErrors = [];
+
+        if (vehicleResults.status === "fulfilled") {
+          state.todayVehicleDefects = vehicleResults.value;
+        } else {
+          state.todayVehicleDefects = [];
+          dashboardErrors.push(`Vehicle defects could not be loaded: ${vehicleResults.reason?.message || "Unknown Supabase error"}`);
+        }
+
+        if (trailerResults.status === "fulfilled") {
+          state.todayTrailerDefects = trailerResults.value;
+        } else {
+          state.todayTrailerDefects = [];
+          dashboardErrors.push(`Trailer defects could not be loaded: ${trailerResults.reason?.message || "Unknown Supabase error"}`);
+        }
+
+        if (unresolvedResults.status === "fulfilled") {
+          state.unresolvedDefects = unresolvedResults.value.unresolved;
+          if (unresolvedResults.value.errors.length) dashboardErrors.push(...unresolvedResults.value.errors);
+        } else {
+          state.unresolvedDefects = [];
+          dashboardErrors.push(`Unresolved defects could not be loaded: ${unresolvedResults.reason?.message || "Unknown Supabase error"}`);
+        }
+
+        renderAllLists();
+
+        if (dashboardErrors.length) {
+          setBanner(els.homeStatus, dashboardErrors.join("\n"), "error");
+        }
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    async function reloadVehicleOnly() {
+      showLoading(true, "Reloading vehicle defects…");
+      setBanner(els.vehicleStatus, "");
+
+      try {
+        state.todayVehicleDefects = await fetchTodayVehicleDefects();
+        const unresolvedResults = await fetchAllUnresolvedDefects();
+        state.unresolvedDefects = unresolvedResults.unresolved;
+        renderAllLists();
+        setBanner(els.vehicleStatus, "Vehicle defects refreshed.", "success");
+      } catch (error) {
+        setBanner(els.vehicleStatus, `Vehicle defects could not be loaded: ${error.message}`, "error");
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    async function reloadTrailerOnly() {
+      showLoading(true, "Reloading trailer defects…");
+      setBanner(els.trailerStatus, "");
+
+      try {
+        state.todayTrailerDefects = await fetchTodayTrailerDefects();
+        const unresolvedResults = await fetchAllUnresolvedDefects();
+        state.unresolvedDefects = unresolvedResults.unresolved;
+        renderAllLists();
+        setBanner(els.trailerStatus, "Trailer defects refreshed.", "success");
+      } catch (error) {
+        setBanner(els.trailerStatus, `Trailer defects could not be loaded: ${error.message}`, "error");
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    async function reloadUnresolvedOnly() {
+      showLoading(true, "Reloading unresolved defects…");
+      setBanner(els.unresolvedStatus, "");
+
+      try {
+        const unresolvedResults = await fetchAllUnresolvedDefects();
+        state.unresolvedDefects = unresolvedResults.unresolved;
+        renderAllLists();
+
+        if (unresolvedResults.errors.length) {
+          setBanner(els.unresolvedStatus, unresolvedResults.errors.join("\n"), "error");
+        } else {
+          setBanner(els.unresolvedStatus, "Unresolved defects refreshed.", "success");
+        }
+      } catch (error) {
+        setBanner(els.unresolvedStatus, `Unresolved defects could not be loaded: ${error.message}`, "error");
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    function findDefect(type, id) {
+      const allDefects = [
+        ...state.todayVehicleDefects,
+        ...state.todayTrailerDefects,
+        ...state.unresolvedDefects
+      ];
+      return allDefects.find((item) => item.type === type && String(item.id) === String(id));
+    }
+
+    function removeResolvedFromState(type, id) {
+      const keep = (item) => !(item.type === type && String(item.id) === String(id));
+      state.todayVehicleDefects = state.todayVehicleDefects.filter(keep);
+      state.todayTrailerDefects = state.todayTrailerDefects.filter(keep);
+      state.unresolvedDefects = state.unresolvedDefects.filter(keep);
+    }
+
+    async function markDefectResolved(card) {
+      const id = card.dataset.defectId;
+      const type = card.dataset.defectType;
+      const defect = findDefect(type, id);
+      const noteField = card.querySelector("[data-resolve-note]");
+      const saveBtn = card.querySelector("[data-action='save-resolve']");
+      const workDone = normaliseText(noteField?.value, "");
+
+      if (!defect) {
+        alert("This defect could not be found in the current list. Please refresh and try again.");
+        return;
+      }
+
+      if (!workDone) {
+        alert("Please enter a brief description of the work carried out before marking this defect as resolved.");
+        noteField?.focus();
+        return;
+      }
+
+      const resolvedAt = formatResolveDateTime();
+      const originalDetails = normaliseText(defect.defect_details, "No original defect details supplied");
+      const resolutionNote = `\n\n---\nResolved by ${RESOLVED_BY}\nDate and time: ${resolvedAt}\nWork carried out: ${workDone}`;
+      const updatedDetails = `${originalDetails}${resolutionNote}`;
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving…";
+
+      const { error } = await supabaseClient
+        .from(defect.table)
+        .update({
+          [STATUS_COLUMN]: RESOLVED_VALUE,
+          defect_details: updatedDetails
+        })
+        .eq("id", id);
+
+      if (error) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save and mark resolved";
+        alert(`Could not mark this defect as resolved: ${error.message}`);
+        return;
+      }
+
+      removeResolvedFromState(type, id);
+      renderAllLists();
+
+      const bannerMap = {
+        vehicleToday: els.vehicleStatus,
+        trailerToday: els.trailerStatus,
+        unresolved: els.unresolvedStatus
+      };
+
+      const banner = bannerMap[card.dataset.mode] || els.homeStatus;
+      setBanner(banner, `${defect.typeLabel} defect ${defect.displayId} marked as resolved.`, "success");
+    }
+
+    function openImageModal(photoUrl, title) {
+      els.modalImage.src = photoUrl;
+      els.modalTitle.textContent = title || "Defect photo";
+      els.imageModal.classList.add("show");
+      els.imageModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeImageModal() {
+      els.imageModal.classList.remove("show");
+      els.imageModal.setAttribute("aria-hidden", "true");
+      els.modalImage.src = "";
+    }
+
+    document.getElementById("vehicleCard").addEventListener("click", () => showScreen("vehicle"));
+    document.getElementById("trailerCard").addEventListener("click", () => showScreen("trailer"));
+    document.getElementById("unresolvedCard").addEventListener("click", () => showScreen("unresolved"));
+    document.querySelectorAll(".backHomeBtn").forEach((button) => button.addEventListener("click", () => showScreen("home")));
+    document.getElementById("refreshBtn").addEventListener("click", loadDashboard);
+    document.getElementById("reloadVehicleBtn").addEventListener("click", reloadVehicleOnly);
+    document.getElementById("reloadTrailerBtn").addEventListener("click", reloadTrailerOnly);
+    document.getElementById("reloadUnresolvedBtn").addEventListener("click", reloadUnresolvedOnly);
+    document.getElementById("closeModalBtn").addEventListener("click", closeImageModal);
+
+    els.imageModal.addEventListener("click", (event) => {
+      if (event.target === els.imageModal) closeImageModal();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeImageModal();
+    });
+
+    document.addEventListener("click", async (event) => {
+      const photo = event.target.closest(".defect-photo");
+      if (photo) {
+        openImageModal(photo.dataset.photoUrl, photo.dataset.photoTitle);
+        return;
+      }
+
+      const openResolveButton = event.target.closest("[data-action='open-resolve']");
+      if (openResolveButton) {
+        const card = openResolveButton.closest(".defect-card");
+        const panel = card.querySelector(".resolve-panel");
+        panel.classList.add("show");
+        const textArea = panel.querySelector("textarea");
+        setTimeout(() => textArea.focus(), 50);
+        return;
+      }
+
+      const cancelButton = event.target.closest("[data-action='cancel-resolve']");
+      if (cancelButton) {
+        const panel = cancelButton.closest(".resolve-panel");
+        panel.classList.remove("show");
+        return;
+      }
+
+      const saveResolveButton = event.target.closest("[data-action='save-resolve']");
+      if (saveResolveButton) {
+        const card = saveResolveButton.closest(".defect-card");
+        await markDefectResolved(card);
+      }
+    });
+
+    loadDashboard();
+  </script>
+</body>
+</html>
