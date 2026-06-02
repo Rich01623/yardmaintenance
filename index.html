@@ -580,12 +580,6 @@
     </header>
 
     <section class="screen active" id="homeScreen">
-      <div class="hero">
-        <h1>Good morning Martyn</h1>
-        <p class="summary-line" id="summaryLine">Checking today’s vehicle and trailer defects…</p>
-        <div class="last-updated" id="lastUpdated">Not refreshed yet</div>
-      </div>
-
       <div class="cards-grid" aria-label="Defect category cards">
         <button class="dashboard-card vehicle" id="vehicleCard" type="button">
           <div class="card-icon">🚛</div>
@@ -674,7 +668,7 @@
       <div class="status-banner" id="unresolvedStatus"></div>
       <div class="empty-state" id="unresolvedEmptyState">
         <h3>No unresolved defects</h3>
-        <p>Any row still marked <strong>DEFECTS</strong> will appear here until Martyn marks it resolved.</p>
+        <p>Any row still marked <strong>DEFECTS</strong> will appear here until it is marked resolved.</p>
       </div>
       <div class="defects-list" id="unresolvedDefectsList"></div>
     </section>
@@ -725,8 +719,6 @@
       trailerScreen: document.getElementById("trailerScreen"),
       unresolvedScreen: document.getElementById("unresolvedScreen"),
       maintenanceScreen: document.getElementById("maintenanceScreen"),
-      summaryLine: document.getElementById("summaryLine"),
-      lastUpdated: document.getElementById("lastUpdated"),
       vehicleCountCard: document.getElementById("vehicleCountCard"),
       trailerCountCard: document.getElementById("trailerCountCard"),
       unresolvedCountCard: document.getElementById("unresolvedCountCard"),
@@ -1080,16 +1072,6 @@
       els.unresolvedCountCard.textContent = unresolvedCount;
       els.maintenanceCountCard.textContent = maintenanceCount;
 
-      els.summaryLine.innerHTML = `There has been <strong>${vehicleCount}</strong> vehicle defects and <strong>${trailerCount}</strong> trailer defects reported for you to assess today. There are <strong>${unresolvedCount}</strong> unresolved defects still open and <strong>${maintenanceCount}</strong> maintenance requests waiting.`;
-
-      const now = new Date();
-      els.lastUpdated.textContent = `Last refreshed: ${now.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      })}`;
 
       els.vehicleSectionSubtitle.textContent = `Showing ${vehicleCount} vehicle defect${vehicleCount === 1 ? "" : "s"} reported on ${range.label}.`;
       els.trailerSectionSubtitle.textContent = `Showing ${trailerCount} trailer defect${trailerCount === 1 ? "" : "s"} reported on ${range.label}.`;
