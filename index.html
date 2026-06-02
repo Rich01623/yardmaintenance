@@ -174,7 +174,7 @@
 
     .cards-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 18px;
       margin-top: 22px;
     }
@@ -202,6 +202,7 @@
 
     .dashboard-card.trailer:hover { border-color: rgba(249, 115, 22, 0.72); }
     .dashboard-card.unresolved:hover { border-color: rgba(168, 85, 247, 0.72); }
+    .dashboard-card.maintenance:hover { border-color: rgba(245, 158, 11, 0.72); }
 
     .card-icon {
       width: 54px;
@@ -217,6 +218,7 @@
 
     .dashboard-card.trailer .card-icon { background: rgba(249, 115, 22, 0.14); color: #fed7aa; }
     .dashboard-card.unresolved .card-icon { background: rgba(168, 85, 247, 0.14); color: #e9d5ff; }
+    .dashboard-card.maintenance .card-icon { background: rgba(245, 158, 11, 0.14); color: #fde68a; }
     .dashboard-card h2 { margin: 0; font-size: 26px; letter-spacing: -0.03em; }
     .card-count { margin: 12px 0 0; color: var(--muted-2); font-size: 16px; }
     .card-count strong { color: var(--text); font-size: 28px; margin-right: 4px; }
@@ -571,7 +573,7 @@
         <div class="brand-mark">FT</div>
         <div>
           <p class="brand-title">Frost Transport</p>
-          <p class="brand-subtitle">Maintenance defect assessment • Unresolved card enabled</p>
+          <p class="brand-subtitle">Maintenance defect assessment • Defects and maintenance requests</p>
         </div>
       </div>
       <button class="refresh-btn" id="refreshBtn" type="button">Refresh defects</button>
@@ -604,6 +606,13 @@
           <h2>Unresolved</h2>
           <p class="card-count"><strong id="unresolvedCountCard">0</strong> still open</p>
           <div class="card-footer">View all open defects, regardless of report date</div>
+        </button>
+
+        <button class="dashboard-card maintenance" id="maintenanceCard" type="button">
+          <div class="card-icon">📋</div>
+          <h2>Maintenance Requests</h2>
+          <p class="card-count"><strong id="maintenanceCountCard">0</strong> waiting</p>
+          <div class="card-footer">View requests and linked defect photos</div>
         </button>
       </div>
 
@@ -669,6 +678,26 @@
       </div>
       <div class="defects-list" id="unresolvedDefectsList"></div>
     </section>
+
+    <section class="screen" id="maintenanceScreen">
+      <div class="section-header">
+        <div>
+          <button class="back-btn backHomeBtn" type="button">← Back to dashboard</button>
+          <h2>Maintenance Requests</h2>
+          <p id="maintenanceSectionSubtitle">Requests sent directly to maintenance and waiting to be resolved. Photos only link when defect_details is an exact match in the original check table.</p>
+        </div>
+        <div class="section-actions">
+          <button class="secondary-btn" id="reloadMaintenanceBtn" type="button">Reload maintenance requests</button>
+        </div>
+      </div>
+
+      <div class="status-banner" id="maintenanceStatus"></div>
+      <div class="empty-state" id="maintenanceEmptyState">
+        <h3>No maintenance requests waiting</h3>
+        <p>Any request in <strong>martyns_maintenance</strong> that has not been resolved will appear here.</p>
+      </div>
+      <div class="defects-list" id="maintenanceRequestsList"></div>
+    </section>
   </main>
 
   <script>
@@ -677,7 +706,8 @@
 
     const TABLES = {
       vehicle: "daily_vehicle_checks",
-      trailer: "daily_trailer_checks"
+      trailer: "daily_trailer_checks",
+      maintenance: "martyns_maintenance"
     };
 
     const STATUS_COLUMN = "condition_status";
@@ -694,24 +724,30 @@
       vehicleScreen: document.getElementById("vehicleScreen"),
       trailerScreen: document.getElementById("trailerScreen"),
       unresolvedScreen: document.getElementById("unresolvedScreen"),
+      maintenanceScreen: document.getElementById("maintenanceScreen"),
       summaryLine: document.getElementById("summaryLine"),
       lastUpdated: document.getElementById("lastUpdated"),
       vehicleCountCard: document.getElementById("vehicleCountCard"),
       trailerCountCard: document.getElementById("trailerCountCard"),
       unresolvedCountCard: document.getElementById("unresolvedCountCard"),
+      maintenanceCountCard: document.getElementById("maintenanceCountCard"),
       vehicleDefectsList: document.getElementById("vehicleDefectsList"),
       trailerDefectsList: document.getElementById("trailerDefectsList"),
       unresolvedDefectsList: document.getElementById("unresolvedDefectsList"),
+      maintenanceRequestsList: document.getElementById("maintenanceRequestsList"),
       vehicleEmptyState: document.getElementById("vehicleEmptyState"),
       trailerEmptyState: document.getElementById("trailerEmptyState"),
       unresolvedEmptyState: document.getElementById("unresolvedEmptyState"),
+      maintenanceEmptyState: document.getElementById("maintenanceEmptyState"),
       homeStatus: document.getElementById("homeStatus"),
       vehicleStatus: document.getElementById("vehicleStatus"),
       trailerStatus: document.getElementById("trailerStatus"),
       unresolvedStatus: document.getElementById("unresolvedStatus"),
+      maintenanceStatus: document.getElementById("maintenanceStatus"),
       vehicleSectionSubtitle: document.getElementById("vehicleSectionSubtitle"),
       trailerSectionSubtitle: document.getElementById("trailerSectionSubtitle"),
       unresolvedSectionSubtitle: document.getElementById("unresolvedSectionSubtitle"),
+      maintenanceSectionSubtitle: document.getElementById("maintenanceSectionSubtitle"),
       imageModal: document.getElementById("imageModal"),
       modalImage: document.getElementById("modalImage"),
       modalTitle: document.getElementById("modalTitle")
@@ -720,7 +756,8 @@
     let state = {
       todayVehicleDefects: [],
       todayTrailerDefects: [],
-      unresolvedDefects: []
+      unresolvedDefects: [],
+      maintenanceRequests: []
     };
 
     function getTodayRange() {
@@ -745,13 +782,14 @@
     }
 
     function showScreen(screenName) {
-      [els.homeScreen, els.vehicleScreen, els.trailerScreen, els.unresolvedScreen].forEach((screen) => {
+      [els.homeScreen, els.vehicleScreen, els.trailerScreen, els.unresolvedScreen, els.maintenanceScreen].forEach((screen) => {
         screen.classList.remove("active");
       });
 
       if (screenName === "vehicle") els.vehicleScreen.classList.add("active");
       else if (screenName === "trailer") els.trailerScreen.classList.add("active");
       else if (screenName === "unresolved") els.unresolvedScreen.classList.add("active");
+      else if (screenName === "maintenance") els.maintenanceScreen.classList.add("active");
       else els.homeScreen.classList.add("active");
 
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -808,6 +846,28 @@
         .replaceAll("'", "&#039;");
     }
 
+    function exactDetailsKey(value) {
+      return String(value ?? "").trim();
+    }
+
+    function hasUsablePhoto(value) {
+      return String(value ?? "").trim() !== "";
+    }
+
+    function findExactPhotoMatchByDefectDetails(request, sourceRows) {
+      const requestDetails = exactDetailsKey(request.defect_details);
+      if (!requestDetails) return null;
+
+      const exactMatches = sourceRows.filter((row) => {
+        return hasUsablePhoto(row.defect_photo_url) && exactDetailsKey(row.defect_details) === requestDetails;
+      });
+
+      if (!exactMatches.length) return null;
+
+      exactMatches.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      return exactMatches[0];
+    }
+
     function decorateVehicle(row) {
       return {
         ...row,
@@ -825,6 +885,27 @@
         type: "trailer",
         typeLabel: "Trailer",
         displayId: normaliseText(row.trailer_number, "Unknown trailer number")
+      };
+    }
+
+    function isResolvedValue(value) {
+      if (value === true) return true;
+      if (value === false || value === null || value === undefined || value === "") return false;
+      const text = String(value).trim().toLowerCase();
+      return ["true", "yes", "y", "resolved", "done", "complete", "completed", "1"].includes(text);
+    }
+
+    function decorateMaintenanceRequest(row) {
+      const vehicleReg = normaliseText(row.vehicle_reg, "");
+      const trailerNumber = normaliseText(row.trailer_nummber ?? row.trailer_number, "");
+      const displayId = vehicleReg || trailerNumber || "No vehicle or trailer number supplied";
+
+      return {
+        ...row,
+        table: TABLES.maintenance,
+        type: "maintenance",
+        typeLabel: "Maintenance Request",
+        displayId
       };
     }
 
@@ -891,17 +972,115 @@
       return { unresolved, errors };
     }
 
+    async function fetchMaintenancePhotoSources() {
+      const [vehicleResults, trailerResults] = await Promise.allSettled([
+        supabaseClient
+          .from(TABLES.vehicle)
+          .select("id, registration, created_at, defect_details, defect_photo_url, condition_status")
+          .order("created_at", { ascending: false })
+          .limit(1000),
+        supabaseClient
+          .from(TABLES.trailer)
+          .select("id, trailer_number, created_at, defect_details, defect_photo_url, condition_status")
+          .order("created_at", { ascending: false })
+          .limit(1000)
+      ]);
+
+      const vehiclePhotoRows = [];
+      const trailerPhotoRows = [];
+
+      if (vehicleResults.status === "fulfilled" && !vehicleResults.value.error) {
+        vehiclePhotoRows.push(...(vehicleResults.value.data || []).filter((row) => normaliseText(row.defect_photo_url, "")));
+      } else {
+        console.warn("Vehicle photo lookup failed", vehicleResults.status === "fulfilled" ? vehicleResults.value.error : vehicleResults.reason);
+      }
+
+      if (trailerResults.status === "fulfilled" && !trailerResults.value.error) {
+        trailerPhotoRows.push(...(trailerResults.value.data || []).filter((row) => normaliseText(row.defect_photo_url, "")));
+      } else {
+        console.warn("Trailer photo lookup failed", trailerResults.status === "fulfilled" ? trailerResults.value.error : trailerResults.reason);
+      }
+
+      return { vehiclePhotoRows, trailerPhotoRows };
+    }
+
+    async function attachPhotosToMaintenanceRequests(requests) {
+      if (!requests.length) return requests;
+
+      const { vehiclePhotoRows, trailerPhotoRows } = await fetchMaintenancePhotoSources();
+
+      return requests.map((request) => {
+        const vehicleMatch = findExactPhotoMatchByDefectDetails(request, vehiclePhotoRows);
+        const trailerMatch = findExactPhotoMatchByDefectDetails(request, trailerPhotoRows);
+        let bestMatch = null;
+        let matchedFrom = "";
+
+        // Strict rule: no vehicle/trailer-number fallback is allowed here.
+        // A photo is only linked when martyns_maintenance.defect_details exactly
+        // matches daily_vehicle_checks.defect_details OR daily_trailer_checks.defect_details.
+        if (vehicleMatch && trailerMatch) {
+          bestMatch = new Date(vehicleMatch.created_at || 0) >= new Date(trailerMatch.created_at || 0)
+            ? vehicleMatch
+            : trailerMatch;
+          matchedFrom = bestMatch === vehicleMatch ? "vehicle check" : "trailer check";
+        } else if (vehicleMatch) {
+          bestMatch = vehicleMatch;
+          matchedFrom = "vehicle check";
+        } else if (trailerMatch) {
+          bestMatch = trailerMatch;
+          matchedFrom = "trailer check";
+        }
+
+        if (!bestMatch) return request;
+
+        return {
+          ...request,
+          defect_photo_url: bestMatch.defect_photo_url,
+          photoMatchedFrom: matchedFrom,
+          photoMatchedAt: bestMatch.created_at,
+          photoMatchRule: "Exact defect_details match"
+        };
+      });
+    }
+
+    async function fetchMaintenanceRequests() {
+      const primarySelect = "id, submitted_by, created_at, vehicle_reg, trailer_nummber, defect_details, action_taken, resolved";
+      let { data, error } = await supabaseClient
+        .from(TABLES.maintenance)
+        .select(primarySelect)
+        .order("created_at", { ascending: false });
+
+      if (error && String(error.message || "").toLowerCase().includes("trailer_nummber")) {
+        const fallback = await supabaseClient
+          .from(TABLES.maintenance)
+          .select("id, submitted_by, created_at, vehicle_reg, trailer_number, defect_details, action_taken, resolved")
+          .order("created_at", { ascending: false });
+        data = fallback.data;
+        error = fallback.error;
+      }
+
+      if (error) throw error;
+
+      const requests = (data || [])
+        .filter((row) => !isResolvedValue(row.resolved))
+        .map(decorateMaintenanceRequest);
+
+      return attachPhotosToMaintenanceRequests(requests);
+    }
+
     function renderSummary() {
       const vehicleCount = state.todayVehicleDefects.length;
       const trailerCount = state.todayTrailerDefects.length;
       const unresolvedCount = state.unresolvedDefects.length;
+      const maintenanceCount = state.maintenanceRequests.length;
       const range = getTodayRange();
 
       els.vehicleCountCard.textContent = vehicleCount;
       els.trailerCountCard.textContent = trailerCount;
       els.unresolvedCountCard.textContent = unresolvedCount;
+      els.maintenanceCountCard.textContent = maintenanceCount;
 
-      els.summaryLine.innerHTML = `There has been <strong>${vehicleCount}</strong> vehicle defects and <strong>${trailerCount}</strong> trailer defects reported for you to assess today. There are <strong>${unresolvedCount}</strong> unresolved defects still open.`;
+      els.summaryLine.innerHTML = `There has been <strong>${vehicleCount}</strong> vehicle defects and <strong>${trailerCount}</strong> trailer defects reported for you to assess today. There are <strong>${unresolvedCount}</strong> unresolved defects still open and <strong>${maintenanceCount}</strong> maintenance requests waiting.`;
 
       const now = new Date();
       els.lastUpdated.textContent = `Last refreshed: ${now.toLocaleString("en-GB", {
@@ -915,6 +1094,7 @@
       els.vehicleSectionSubtitle.textContent = `Showing ${vehicleCount} vehicle defect${vehicleCount === 1 ? "" : "s"} reported on ${range.label}.`;
       els.trailerSectionSubtitle.textContent = `Showing ${trailerCount} trailer defect${trailerCount === 1 ? "" : "s"} reported on ${range.label}.`;
       els.unresolvedSectionSubtitle.textContent = `Showing ${unresolvedCount} unresolved defect${unresolvedCount === 1 ? "" : "s"} from all dates.`;
+      els.maintenanceSectionSubtitle.textContent = `Showing ${maintenanceCount} maintenance request${maintenanceCount === 1 ? "" : "s"} waiting to be resolved.`;
     }
 
     function renderDefects(defects, listElement, emptyElement, mode) {
@@ -995,11 +1175,106 @@
       });
     }
 
+    function renderMaintenanceRequests() {
+      els.maintenanceRequestsList.innerHTML = "";
+      els.maintenanceEmptyState.classList.toggle("show", state.maintenanceRequests.length === 0);
+
+      state.maintenanceRequests.forEach((request) => {
+        const displayId = normaliseText(request.displayId, "No vehicle or trailer number supplied");
+        const submittedBy = normaliseText(request.submitted_by, "Unknown sender");
+        const defectDetails = normaliseText(request.defect_details, "No defect details supplied");
+        const createdAt = formatDateTime(request.created_at);
+        const vehicleReg = normaliseText(request.vehicle_reg, "Not supplied");
+        const trailerNumber = normaliseText(request.trailer_nummber ?? request.trailer_number, "Not supplied");
+        const photoUrl = normaliseText(request.defect_photo_url, "");
+        const photoSource = normaliseText(request.photoMatchedFrom, "matching defect check");
+        const photoMatchedAt = request.photoMatchedAt ? `Matched from ${photoSource}, reported ${formatDateTime(request.photoMatchedAt)}` : `Matched from ${photoSource}`;
+        const resolveStamp = formatResolveDateTime();
+        const cardKey = `maintenance-${request.id}`;
+
+        const card = document.createElement("article");
+        card.className = "defect-card";
+        card.dataset.requestId = request.id;
+        card.dataset.mode = "maintenance";
+
+        card.innerHTML = `
+          <div class="defect-photo-box">
+            ${photoUrl
+              ? `<img class="defect-photo" src="${escapeHtml(photoUrl)}" alt="Defect photo for ${escapeHtml(displayId)}" data-photo-url="${escapeHtml(photoUrl)}" data-photo-title="${escapeHtml(displayId)} maintenance request photo" title="${escapeHtml(photoMatchedAt)}" onerror="this.parentElement.textContent='Photo could not be loaded';" />`
+              : `<span>No linked photo found</span>`
+            }
+          </div>
+
+          <div class="defect-main">
+            <div class="defect-topline">
+              <div class="defect-title-wrap">
+                <h3 class="registration">${escapeHtml(displayId)}</h3>
+                <span class="defect-type-label">Maintenance request</span>
+              </div>
+              <div class="defect-actions">
+                <span class="defect-pill">● Waiting</span>
+                <button class="resolve-btn" type="button" data-action="open-maintenance-resolve" data-card-key="${escapeHtml(cardKey)}">Mark resolved</button>
+              </div>
+            </div>
+
+            <div class="meta-grid">
+              <div class="meta-item">
+                <span class="meta-label">Submitted by</span>
+                <span class="meta-value">${escapeHtml(submittedBy)}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Time and date</span>
+                <span class="meta-value">${escapeHtml(createdAt)}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Vehicle reg</span>
+                <span class="meta-value">${escapeHtml(vehicleReg)}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Trailer number</span>
+                <span class="meta-value">${escapeHtml(trailerNumber)}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Photo</span>
+                <span class="meta-value">${photoUrl ? escapeHtml(photoMatchedAt) : "No matching uploaded photo found"}</span>
+              </div>
+            </div>
+
+            <div class="defect-details"><strong>Defect Details</strong>
+${escapeHtml(defectDetails)}</div>
+
+            <div class="resolve-panel" data-resolve-panel="${escapeHtml(cardKey)}">
+              <p class="resolve-panel-title">Mark this maintenance request as resolved</p>
+              <div class="resolve-readonly-grid">
+                <div class="readonly-box">
+                  <span>Resolved by</span>
+                  <strong>${escapeHtml(RESOLVED_BY)}</strong>
+                </div>
+                <div class="readonly-box">
+                  <span>Date and time</span>
+                  <strong>${escapeHtml(resolveStamp)}</strong>
+                </div>
+              </div>
+              <label for="maintenance-action-${escapeHtml(cardKey)}">Brief description of action taken</label>
+              <textarea id="maintenance-action-${escapeHtml(cardKey)}" data-maintenance-action-note placeholder="Example: Inspected trailer, adjusted brake linkage and confirmed safe to use."></textarea>
+              <div class="resolve-panel-actions">
+                <button class="cancel-resolve-btn" type="button" data-action="cancel-resolve">Cancel</button>
+                <button class="save-resolve-btn" type="button" data-action="save-maintenance-resolve">Save and mark resolved</button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        els.maintenanceRequestsList.appendChild(card);
+      });
+    }
+
     function renderAllLists() {
       renderSummary();
       renderDefects(state.todayVehicleDefects, els.vehicleDefectsList, els.vehicleEmptyState, "vehicleToday");
       renderDefects(state.todayTrailerDefects, els.trailerDefectsList, els.trailerEmptyState, "trailerToday");
       renderDefects(state.unresolvedDefects, els.unresolvedDefectsList, els.unresolvedEmptyState, "unresolved");
+      renderMaintenanceRequests();
     }
 
     async function loadDashboard() {
@@ -1008,12 +1283,14 @@
       setBanner(els.vehicleStatus, "");
       setBanner(els.trailerStatus, "");
       setBanner(els.unresolvedStatus, "");
+      setBanner(els.maintenanceStatus, "");
 
       try {
-        const [vehicleResults, trailerResults, unresolvedResults] = await Promise.allSettled([
+        const [vehicleResults, trailerResults, unresolvedResults, maintenanceResults] = await Promise.allSettled([
           fetchTodayVehicleDefects(),
           fetchTodayTrailerDefects(),
-          fetchAllUnresolvedDefects()
+          fetchAllUnresolvedDefects(),
+          fetchMaintenanceRequests()
         ]);
 
         const dashboardErrors = [];
@@ -1038,6 +1315,13 @@
         } else {
           state.unresolvedDefects = [];
           dashboardErrors.push(`Unresolved defects could not be loaded: ${unresolvedResults.reason?.message || "Unknown Supabase error"}`);
+        }
+
+        if (maintenanceResults.status === "fulfilled") {
+          state.maintenanceRequests = maintenanceResults.value;
+        } else {
+          state.maintenanceRequests = [];
+          dashboardErrors.push(`Maintenance requests could not be loaded: ${maintenanceResults.reason?.message || "Unknown Supabase error"}`);
         }
 
         renderAllLists();
@@ -1105,6 +1389,21 @@
       }
     }
 
+    async function reloadMaintenanceOnly() {
+      showLoading(true, "Reloading maintenance requests…");
+      setBanner(els.maintenanceStatus, "");
+
+      try {
+        state.maintenanceRequests = await fetchMaintenanceRequests();
+        renderAllLists();
+        setBanner(els.maintenanceStatus, "Maintenance requests refreshed.", "success");
+      } catch (error) {
+        setBanner(els.maintenanceStatus, `Maintenance requests could not be loaded: ${error.message}`, "error");
+      } finally {
+        showLoading(false);
+      }
+    }
+
     function findDefect(type, id) {
       const allDefects = [
         ...state.todayVehicleDefects,
@@ -1119,6 +1418,60 @@
       state.todayVehicleDefects = state.todayVehicleDefects.filter(keep);
       state.todayTrailerDefects = state.todayTrailerDefects.filter(keep);
       state.unresolvedDefects = state.unresolvedDefects.filter(keep);
+    }
+
+    function findMaintenanceRequest(id) {
+      return state.maintenanceRequests.find((item) => String(item.id) === String(id));
+    }
+
+    function removeMaintenanceRequestFromState(id) {
+      state.maintenanceRequests = state.maintenanceRequests.filter((item) => String(item.id) !== String(id));
+    }
+
+    async function markMaintenanceRequestResolved(card) {
+      const id = card.dataset.requestId;
+      const request = findMaintenanceRequest(id);
+      const noteField = card.querySelector("[data-maintenance-action-note]");
+      const saveBtn = card.querySelector("[data-action='save-maintenance-resolve']");
+      const actionTaken = normaliseText(noteField?.value, "");
+
+      if (!request) {
+        alert("This maintenance request could not be found in the current list. Please refresh and try again.");
+        return;
+      }
+
+      if (!actionTaken) {
+        alert("Please enter a brief description of the action taken before marking this request as resolved.");
+        noteField?.focus();
+        return;
+      }
+
+      const resolvedAt = formatResolveDateTime();
+      const actionLog = `Resolved by ${RESOLVED_BY}
+Date and time: ${resolvedAt}
+Action taken: ${actionTaken}`;
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving…";
+
+      const { error } = await supabaseClient
+        .from(TABLES.maintenance)
+        .update({
+          action_taken: actionLog,
+          resolved: true
+        })
+        .eq("id", id);
+
+      if (error) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save and mark resolved";
+        alert(`Could not mark this maintenance request as resolved: ${error.message}`);
+        return;
+      }
+
+      removeMaintenanceRequestFromState(id);
+      renderAllLists();
+      setBanner(els.maintenanceStatus, `Maintenance request ${request.displayId} marked as resolved.`, "success");
     }
 
     async function markDefectResolved(card) {
@@ -1192,11 +1545,13 @@
     document.getElementById("vehicleCard").addEventListener("click", () => showScreen("vehicle"));
     document.getElementById("trailerCard").addEventListener("click", () => showScreen("trailer"));
     document.getElementById("unresolvedCard").addEventListener("click", () => showScreen("unresolved"));
+    document.getElementById("maintenanceCard").addEventListener("click", () => showScreen("maintenance"));
     document.querySelectorAll(".backHomeBtn").forEach((button) => button.addEventListener("click", () => showScreen("home")));
     document.getElementById("refreshBtn").addEventListener("click", loadDashboard);
     document.getElementById("reloadVehicleBtn").addEventListener("click", reloadVehicleOnly);
     document.getElementById("reloadTrailerBtn").addEventListener("click", reloadTrailerOnly);
     document.getElementById("reloadUnresolvedBtn").addEventListener("click", reloadUnresolvedOnly);
+    document.getElementById("reloadMaintenanceBtn").addEventListener("click", reloadMaintenanceOnly);
     document.getElementById("closeModalBtn").addEventListener("click", closeImageModal);
 
     els.imageModal.addEventListener("click", (event) => {
@@ -1231,10 +1586,27 @@
         return;
       }
 
+      const openMaintenanceResolveButton = event.target.closest("[data-action='open-maintenance-resolve']");
+      if (openMaintenanceResolveButton) {
+        const card = openMaintenanceResolveButton.closest(".defect-card");
+        const panel = card.querySelector(".resolve-panel");
+        panel.classList.add("show");
+        const textArea = panel.querySelector("textarea");
+        setTimeout(() => textArea.focus(), 50);
+        return;
+      }
+
       const saveResolveButton = event.target.closest("[data-action='save-resolve']");
       if (saveResolveButton) {
         const card = saveResolveButton.closest(".defect-card");
         await markDefectResolved(card);
+        return;
+      }
+
+      const saveMaintenanceResolveButton = event.target.closest("[data-action='save-maintenance-resolve']");
+      if (saveMaintenanceResolveButton) {
+        const card = saveMaintenanceResolveButton.closest(".defect-card");
+        await markMaintenanceRequestResolved(card);
       }
     });
 
